@@ -6,6 +6,7 @@ import Data.Time
 import Data.Maybe
 import Text.Parsec hiding (spaces)
 import Entry
+import Debug.Trace
 
 loadFile :: String -> IO [Entry]
 loadFile file = do
@@ -41,29 +42,38 @@ entry = do
   space
   t <- time
   space
-  action <- count 1 anyChar
+  action <- anyChar
   space
-  e <- case action of "h" -> habit
-                      "p" -> periodic
-                      "t" -> todo
-                      "x" -> mark
-                      _ -> parserFail "Not a valid action." 
+  e <- case action of 'h' -> habit
+                      'p' -> periodic
+                      't' -> todo
+                      'x' -> mark
+                      _ -> parserFail "not a valid action"
   return $ e (LocalTime d t)
 
 parseLine :: Parsec String () (Maybe Entry)
 parseLine = (comment >> return Nothing) <|> (Just <$> entry)
 
 parseEntries :: Parsec String () [Entry]
-parseEntries = catMaybes <$> parseLine `sepEndBy1` endOfLine
+parseEntries = catMaybes <$> parseLine `sepEndBy1` many1 endOfLine
 
 readWord :: Parsec String () String
-readWord = many1 $ noneOf " "
+readWord = many1 $ noneOf " \n\r"
 
 spaces :: Parsec String () ()
 spaces = skipMany1 space
 
 parseDuration :: Parsec String () DiffTime
-parseDuration = undefined
+parseDuration = do
+  xs <- many digit
+  u <- anyChar
+  let x = read xs
+  s <- case u of 'h' -> return $ 60 * 60
+                 'd' -> return $ 60 * 60 * 24
+                 'w' -> return $ 60 * 60 * 24 * 7
+                 _ -> parserFail "unknown duration unit"
+  return $ secondsToDiffTime (x * s)
+
 
 habit :: Parsec String () (LocalTime -> Entry)
 habit = do
@@ -85,6 +95,16 @@ periodic = do
 
 todo :: Parsec String () (LocalTime -> Entry)
 todo = undefined
+--   name <- readWord
+--   spaces
+--   d <- parseDuration
+--   spaces
+--   val <- readWord
+--   burnTillEndOfLine
+--   return $ EntryPeriodic (Periodic name d (read val))
 
 mark :: Parsec String () (LocalTime -> Entry)
-mark = undefined
+mark = do
+  name <- readWord
+  burnTillEndOfLine
+  return $ EntryMark name

@@ -1,6 +1,7 @@
-import System.Environment
 import Control.Monad
+import Game
 import Parser
+import System.Environment
 
 main :: IO ()
 main = do
@@ -9,5 +10,8 @@ main = do
 
   -- Read in a list of entries
   es <- loadFile (head args)
+
+  -- mapM_ print es
+  mapM_ print $ followEntries es
   
   return ()
