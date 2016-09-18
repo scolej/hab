@@ -5,6 +5,8 @@ module Game ( CharMod (..)
             , CharacterState (..)
             , GameStateAcc (..)
             , followEntries
+            , blankState
+            , charFromState
             ) where
 
 import Debug.Trace
@@ -19,6 +21,15 @@ data CharacterState = CharacterState { csLife :: Int
                                      , csExp :: Int
                                      , csLevel :: Int
                                      }
+  deriving Show
+
+charFromState :: GameStateAcc -> CharacterState
+charFromState gs = CharacterState life ex 1
+  where es = gsMods gs
+        hmods = [x | ModHealth _ _ x <- es]
+        emods = [x | ModExp    _ _ x <- es]
+        life = sum hmods
+        ex = sum emods
 
 data GameStateAcc = GameStateAcc { gsItems :: [(String, Item)]
                                  , gsLastPeriodicMark :: [(String, LocalTime)]
@@ -40,9 +51,9 @@ instance Nameable Item
 blankState :: GameStateAcc
 blankState = GameStateAcc [] [] []
 
-followEntries :: LocalTime -> [Entry] -> GameStateAcc
-followEntries now es =
-  let finalState = foldl doEntry blankState es
+followEntries :: GameStateAcc -> LocalTime -> [Entry] -> GameStateAcc
+followEntries gs now es =
+  let finalState = foldl doEntry gs es
   in finalState { gsMods = calcFinalPeriodics now finalState ++ gsMods finalState }
 
 calcFinalPeriodics :: LocalTime -> GameStateAcc -> [CharMod]
@@ -57,7 +68,7 @@ doEntry :: GameStateAcc -> Entry -> GameStateAcc
 doEntry gs e =
   case e of EntryHabit h _ -> updateItems gs (ItemHabit h)
             EntryPeriodic p _ -> updateItems gs (ItemPeriodic p)
-            EntryMark n t -> doMark gs n t
+            EntryMark (n, t) -> doMark gs n t
             _ -> error $ "Don't know how to handle these entries yet: " ++ show e
 
 -- TODO Lenses?

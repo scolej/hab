@@ -107,4 +107,4 @@ mark :: Parsec String () (LocalTime -> Entry)
 mark = do
   name <- readWord
   burnTillEndOfLine
-  return $ EntryMark name
+  return $ \t -> EntryMark (name, t)

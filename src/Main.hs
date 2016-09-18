@@ -1,3 +1,4 @@
+import Debug.Trace
 import Control.Monad
 import Game
 import Parser
@@ -5,9 +6,13 @@ import System.Environment
 import Data.Time
 import Data.List
 import Data.String.Utils
+import Entry
+import System.Console.ANSI
 
+logFile :: String
 logFile = "/home/sjc/everything/habit.log"
 
+getLocalTime :: IO LocalTime
 getLocalTime = do
   tz <- getCurrentTimeZone
   now <- getCurrentTime
@@ -22,21 +27,54 @@ main = do
 
   now <- getLocalTime
 
-  let g = followEntries now es
+  let g = followEntries blankState now es
       names = map fst (gsItems g)
 
-  if (length args == 0)
-    then mapM_ print $ gsMods g
-    else tryMarks names args
+  if null args
+    then mapM_ print (gsMods g) >> print (charFromState g)
+    else tryMarks names args >>= postWrite g
 
   return ()
 
-tryMarks :: [String] -> [String] -> IO ()
+postWrite :: GameStateAcc -> [Mark] -> IO ()
+postWrite gs es = do
+  now <- getLocalTime
+  let c = charFromState gs
+      gs' = followEntries gs now (map EntryMark es)
+      c' = charFromState gs'
+      dh = csLife c' - csLife c
+      dx = csExp c' - csExp c
+
+  when (dx /= 0) $ do
+    putStr "Exp: "
+    colourMarks dx
+    putStr "\n"
+
+  when (dh /= 0) $ do
+    putStr "Lif: "
+    colourMarks dh
+    putStr "\n"
+
+colourMarks :: Int -> IO ()
+colourMarks i = do
+  if i < 0
+    then do setSGR [SetColor Background Vivid Red]
+            putStr $ replicate (-i) '-'
+    else do setSGR [SetColor Background Vivid Green]
+            putStr $ replicate i '+'
+  setSGR []
+
+tryMarks :: [String] -> [String] -> IO [Mark]
 tryMarks names args = do
+  now <- getLocalTime
   let marks = map (disambigName names) args
   if all (\x -> case x of Match _ -> True; _ -> False) marks
-    then writeMarks (map (\(Match x) -> x) marks)  >> putStrLn (show (length marks) ++ " item(s) checked off")
-    else mapM_ print marks
+    then do let ms = map (\(Match x) -> x) marks
+                es = map (\s -> (s, now)) ms
+            writeMarks es
+            putStrLn (show (length marks) ++ " item(s) checked off")
+            return es
+    else mapM_ print marks >> return []
 
 data Match a = NoMatch a | Ambiguous [a] | Match a
   deriving Show
@@ -48,9 +86,10 @@ disambigName names arg = do
                 [] -> NoMatch arg
                 xs -> Ambiguous xs
 
-writeMarks :: [String] -> IO ()
+markStr :: Mark -> String
+markStr (s, t) = unwords [formatTime defaultTimeLocale "%Y-%m-%d %H%M" t, "x", s]
+
+writeMarks :: [Mark] -> IO ()
 writeMarks marks = do
-  now <- getLocalTime
-  let e m = unwords [formatTime defaultTimeLocale "%Y-%m-%d %H%M" now, "x", m]
-  let newlines = "\n" ++ (concat . intersperse "\n" . map e) marks
+  let newlines = "\n" ++ (intercalate "\n" . map markStr) marks
   appendFile logFile newlines

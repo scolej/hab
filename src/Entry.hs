@@ -3,6 +3,7 @@ module Entry ( Habit (..)
              , Todo (..)
              , Entry (..)
              , Nameable
+             , Mark
              , getName
              ) where
 
@@ -29,8 +30,10 @@ data Todo = Todo String Int
 instance Nameable Todo where
   getName (Todo s _) = s
 
-data Entry = EntryHabit    Habit    LocalTime
+type Mark = (String, LocalTime)
+
+data Entry = EntryHabit Habit LocalTime
            | EntryPeriodic Periodic LocalTime
-           | EntryTodo     Todo     LocalTime
-           | EntryMark     String   LocalTime
+           | EntryTodo Todo LocalTime
+           | EntryMark Mark
   deriving (Show)
