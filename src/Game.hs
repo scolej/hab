@@ -1,8 +1,13 @@
-module Game (CharMod (..)
+-- TODO A monster mess. Clean it.
+-- advanceStateTime :: GameState -> UTCTime -> GameState
+
+module Game ( CharMod (..)
             , CharacterState (..)
+            , GameStateAcc (..)
             , followEntries
             ) where
 
+import Debug.Trace
 import Data.List.Utils
 import Data.Time
 import Entry
@@ -16,9 +21,10 @@ data CharacterState = CharacterState { csLife :: Int
                                      }
 
 data GameStateAcc = GameStateAcc { gsItems :: [(String, Item)]
-                                 , gsLastPeriodicCheck :: [(String, LocalTime)]
+                                 , gsLastPeriodicMark :: [(String, LocalTime)]
                                  , gsMods :: [CharMod]
                                  }
+  deriving Show
 
 data Item = ItemHabit    Habit
           | ItemPeriodic Periodic
@@ -34,8 +40,18 @@ instance Nameable Item
 blankState :: GameStateAcc
 blankState = GameStateAcc [] [] []
 
-followEntries :: [Entry] -> [CharMod]
-followEntries es = gsMods $ foldl doEntry blankState es
+followEntries :: LocalTime -> [Entry] -> GameStateAcc
+followEntries now es =
+  let finalState = foldl doEntry blankState es
+  in finalState { gsMods = calcFinalPeriodics now finalState ++ gsMods finalState }
+
+calcFinalPeriodics :: LocalTime -> GameStateAcc -> [CharMod]
+calcFinalPeriodics now gs =
+  let f (_, x) = case x of ItemPeriodic p -> [p]
+                           _ -> []
+      ps = concatMap f (gsItems gs)
+  in concatMap (\p@(Periodic n _ _) ->
+                  calcPeriodic p (lookup n (gsLastPeriodicMark gs)) now) ps
 
 doEntry :: GameStateAcc -> Entry -> GameStateAcc
 doEntry gs e =
@@ -57,7 +73,7 @@ doMark gs name time =
                  then ModExp time name val
                  else ModHealth time name val
          in gs { gsMods = i : gsMods gs }
-       Just (ItemPeriodic p) -> doMarkPeriodic gs p time 
+       Just (ItemPeriodic p) -> doMarkPeriodic gs p time
        Just _ ->
          error $ "Don't know how to mark this item yet: " ++ show item
        Nothing ->
@@ -67,7 +83,21 @@ doMarkPeriodic :: GameStateAcc -- ^ Initial game state.
                -> Periodic     -- ^ The periodic we're marking off.
                -> LocalTime    -- ^ The time to mark the periodic off at.
                -> GameStateAcc -- ^ The resultant game state.
-doMarkPeriodic gs (Periodic name p val) time =
-  let lpc = addToAL (gsLastPeriodicCheck gs) name time
-      is = undefined
-  in gs { gsLastPeriodicCheck = lpc, gsMods = is ++ gsMods gs }
+doMarkPeriodic gs p@(Periodic name _ val) time =
+  let lpc = addToAL (gsLastPeriodicMark gs) name time
+      lm = lookup name (gsLastPeriodicMark gs)
+      is = calcPeriodic p lm time
+      x = ModExp time name val
+  in gs { gsLastPeriodicMark = lpc, gsMods = x : is ++ gsMods gs }
+
+calcPeriodic :: Periodic -> Maybe LocalTime -> LocalTime -> [CharMod]
+calcPeriodic (Periodic name p val) lastMarked now =
+  let u = localTimeToUTC utc
+      u' = utcToLocalTime utc
+      d = (fromRational . toRational) p :: NominalDiffTime
+  in case lastMarked of
+       Nothing -> []
+       Just lm -> run (addUTCTime d (u lm))
+         where run t = if t < u now
+                       then ModHealth (u' t) name (-val) : run (addUTCTime d t)
+                       else []
