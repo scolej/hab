@@ -43,7 +43,7 @@ data Match a = NoMatch a | Ambiguous [a] | Match a
 
 disambigName :: [String] -> String -> Match String
 disambigName names arg = do
-  let cands = filter (startswith arg) names
+  let cands = filter (isInfixOf arg) names
   case cands of [a] -> Match a
                 [] -> NoMatch arg
                 xs -> Ambiguous xs
