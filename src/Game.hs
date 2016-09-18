@@ -89,7 +89,7 @@ doMark gs name time =
        Just _ ->
          error $ "Don't know how to mark this item yet: " ++ show item
        Nothing ->
-         error $ "Item was not found in list of active items: " ++ show item
+         error $ "Item was not found in list of active items: " ++ show name
 
 doMarkPeriodic :: GameStateAcc -- ^ Initial game state.
                -> Periodic     -- ^ The periodic we're marking off.
