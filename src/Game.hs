@@ -7,6 +7,7 @@ module Game ( CharMod (..)
             , followEntries
             , blankState
             , charFromState
+            , Item (..)
             ) where
 
 import Debug.Trace
