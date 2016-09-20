@@ -1,15 +1,13 @@
-import Text.Printf
-import Debug.Trace
 import Control.Monad
+import Data.List
+import Data.Ord
+import Data.Time
+import Entry
 import Game
 import Parser
-import System.Environment
-import Data.Time
-import Data.List
-import Data.String.Utils
-import Entry
 import System.Console.ANSI
-import Data.Ord
+import System.Environment
+import Text.Printf
 
 logFile :: String
 logFile = "/home/sjc/everything/habit.log"
@@ -29,16 +27,18 @@ main = do
 
   now <- getLocalTime
 
-  let g = followEntries blankState now es
+  let (g, c) = runEntries blankState es now
       names = map fst (gsItems g)
 
   if null args
     then do mapM_ print (gsMods g)
-            print (charFromState g)
+            print c
             writePeriodics g
     else do ms <- tryMarks names args
-            let g' = followEntries g now (map EntryMark ms)
-            postWrite g g'
+            let (gs', c') = runEntries g (map EntryMark ms) now
+            postWrite c c'
+
+  -- mapM_ print $ gsItems g
 
   return ()
 
@@ -48,15 +48,15 @@ ppDiffTime d | abs d < 60 * 60 * 24 = printf "%.1fh" (d' / 60 / 60)
              | otherwise =  printf "%.1fw" (d' / 60 / 60 / 24 / 7)
   where d' = (fromRational . toRational) d :: Float
 
-timeRemaining :: LocalTime -> GameStateAcc -> Periodic -> Maybe DiffTime
+timeRemaining :: LocalTime -> GameState -> Periodic -> Maybe DiffTime
 timeRemaining now g (Periodic p d _) =
   let u = localTimeToUTC utc
-      lm = lookup p (gsLastPeriodicMark g)
+      lm = lookup p (gsMarks g)
   in case lm of Nothing -> Nothing
                 Just l -> let dur = diffUTCTime (u now) (u l)
                           in Just $ d - (fromRational . toRational) dur
 
-writePeriodics :: GameStateAcc -> IO ()
+writePeriodics :: GameState -> IO ()
 writePeriodics g = do
   now <- getLocalTime
   let ps = [p | ItemPeriodic p <- (map snd . gsItems) g]
@@ -64,20 +64,16 @@ writePeriodics g = do
       rs' = [(p, r) | (p, Just r) <- rs]
   mapM_
     (\(Periodic n _ _, r) -> putStrLn $ unwords [ppDiffTime r, n])
-    (sortBy (comparing snd) rs')
+    (sortBy (comparing (\(Periodic _ d _, r) -> r / d)) rs')
 
-postWrite :: GameStateAcc -> GameStateAcc -> IO ()
-postWrite gs gs' = do
-  let c = charFromState gs
-      c' = charFromState gs'
-      dh = csLife c' - csLife c
+postWrite :: CharState -> CharState -> IO ()
+postWrite c c' = do
+  let dh = csHealth c' - csHealth c
       dx = csExp c' - csExp c
-
   when (dx /= 0) $ do
     putStr "Exp: "
     colourMarks dx
     putStr "\n"
-
   when (dh /= 0) $ do
     putStr "Lif: "
     colourMarks dh

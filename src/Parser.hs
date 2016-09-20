@@ -2,11 +2,10 @@
 
 module Parser (loadFile) where
 
-import Data.Time
 import Data.Maybe
-import Text.Parsec hiding (spaces)
+import Data.Time
 import Entry
-import Debug.Trace
+import Text.Parsec hiding (spaces)
 
 loadFile :: String -> IO [Entry]
 loadFile file = do
@@ -14,6 +13,12 @@ loadFile file = do
   case parse parseEntries file contents
     of Right es -> return es
        Left err -> error (show err)
+
+parseLine :: Parsec String () (Maybe Entry)
+parseLine = (comment >> return Nothing) <|> (Just <$> entry)
+
+parseEntries :: Parsec String () [Entry]
+parseEntries = catMaybes <$> parseLine `sepEndBy1` many1 endOfLine
 
 burnTillEndOfLine :: Parsec String () ()
 burnTillEndOfLine = skipMany $ noneOf "\n\r"
@@ -44,18 +49,10 @@ entry = do
   space
   action <- anyChar
   space
-  e <- case action of 'h' -> habit
-                      'p' -> periodic
-                      't' -> todo
-                      'x' -> mark
-                      _ -> parserFail "not a valid action"
-  return $ e (LocalTime d t)
-
-parseLine :: Parsec String () (Maybe Entry)
-parseLine = (comment >> return Nothing) <|> (Just <$> entry)
-
-parseEntries :: Parsec String () [Entry]
-parseEntries = catMaybes <$> parseLine `sepEndBy1` many1 endOfLine
+  case action of 'h' -> habit (LocalTime d t)
+                 'p' -> periodic (LocalTime d t)
+                 'x' -> mark (LocalTime d t)
+                 _ -> parserFail "not a valid action"
 
 readWord :: Parsec String () String
 readWord = many1 $ noneOf " \n\r"
@@ -75,36 +72,26 @@ parseDuration = do
   return $ secondsToDiffTime (x * s)
 
 
-habit :: Parsec String () (LocalTime -> Entry)
-habit = do
+habit :: LocalTime -> Parsec String () Entry
+habit t = do
   name <- readWord
   spaces
   val <- readWord
   burnTillEndOfLine
-  return $ EntryHabit (Habit name (read val))
+  return $ EntryHabit t (Habit name (read val))
 
-periodic :: Parsec String () (LocalTime -> Entry)
-periodic = do
+periodic :: LocalTime -> Parsec String () Entry
+periodic t = do
   name <- readWord
   spaces
   d <- parseDuration
   spaces
   val <- readWord
   burnTillEndOfLine
-  return $ EntryPeriodic (Periodic name d (read val))
+  return $ EntryPeriodic t (Periodic name d (read val))
 
-todo :: Parsec String () (LocalTime -> Entry)
-todo = undefined
---   name <- readWord
---   spaces
---   d <- parseDuration
---   spaces
---   val <- readWord
---   burnTillEndOfLine
---   return $ EntryPeriodic (Periodic name d (read val))
-
-mark :: Parsec String () (LocalTime -> Entry)
-mark = do
+mark :: LocalTime -> Parsec String () Entry
+mark t = do
   name <- readWord
   burnTillEndOfLine
-  return $ \t -> EntryMark (name, t)
+  return $ EntryMark (name, t)

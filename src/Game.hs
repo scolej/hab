@@ -1,115 +1,122 @@
--- TODO A monster mess. Clean it.
--- advanceStateTime :: GameState -> UTCTime -> GameState
-
 module Game ( CharMod (..)
-            , CharacterState (..)
-            , GameStateAcc (..)
-            , followEntries
-            , blankState
-            , charFromState
+            , CharState (..)
+            , GameState (..)
             , Item (..)
+            , blankState
+            , runEntries
             ) where
 
-import Debug.Trace
 import Data.List.Utils
 import Data.Time
 import Entry
+import Debug.Trace
 
-data CharMod = ModExp LocalTime String Int | ModHealth LocalTime String Int
+-- | Character state.
+data CharState = CharState { csHealth :: Int
+                           , csExp :: Int
+                           , csLevel :: Int
+                           }
   deriving Show
 
-data CharacterState = CharacterState { csLife :: Int
-                                     , csExp :: Int
-                                     , csLevel :: Int
-                                     }
+-- | A modification to the character data.
+data CharMod = ModExp LocalTime String Int    -- ^ Increment / decrement experience.
+             | ModHealth LocalTime String Int -- ^ Increment / decrement health.
   deriving Show
 
-charFromState :: GameStateAcc -> CharacterState
-charFromState gs = CharacterState life ex 1
+deriveCharacter :: GameState -> CharState
+deriveCharacter gs = CharState life ex 1
   where es = gsMods gs
         hmods = [x | ModHealth _ _ x <- es]
         emods = [x | ModExp    _ _ x <- es]
         life = sum hmods
         ex = sum emods
 
-data GameStateAcc = GameStateAcc { gsItems :: [(String, Item)]
-                                 , gsLastPeriodicMark :: [(String, LocalTime)]
-                                 , gsMods :: [CharMod]
-                                 }
+-- | Value to store the game state as it evolves over time.
+data GameState = GameState { gsItems :: [(String, Item)]      -- ^ List of named items that can be checked out.
+                           , gsMarks :: [(String, LocalTime)] -- ^ Association list from item names to the last time that they were checked off.
+                           , gsMods :: [CharMod]              -- ^ List of all modifications to the character that have happened over time.
+                           }
   deriving Show
 
+-- TODO Do we actually need this type?
 data Item = ItemHabit    Habit
           | ItemPeriodic Periodic
-          | ItemTodo     Todo
   deriving Show
 
 -- TODO Better way to do this?
 instance Nameable Item
   where getName (ItemHabit    x) = getName x
         getName (ItemPeriodic x) = getName x
-        getName (ItemTodo     x) = getName x
 
-blankState :: GameStateAcc
-blankState = GameStateAcc [] [] []
+-- | Empty game state.
+blankState :: GameState
+blankState = GameState [] [] []
 
-followEntries :: GameStateAcc -> LocalTime -> [Entry] -> GameStateAcc
-followEntries gs now es =
-  let finalState = foldl doEntry gs es
-  in finalState { gsMods = calcFinalPeriodics now finalState ++ gsMods finalState }
+-- | Run a set of entries up to a given time.
+runEntries :: GameState              -- ^ Starting state.
+           -> [Entry]                -- ^ List of entries to run.
+           -> LocalTime              -- ^ Time to run up to.
+           -> (GameState, CharState) -- ^ Resultant state and character.
+runEntries gs es t =
+  let gs' = doTime t $ foldl (flip doEntry) gs es
+  in (gs', deriveCharacter gs')
 
-calcFinalPeriodics :: LocalTime -> GameStateAcc -> [CharMod]
-calcFinalPeriodics now gs =
-  let f (_, x) = case x of ItemPeriodic p -> [p]
-                           _ -> []
-      ps = concatMap f (gsItems gs)
-  in concatMap (\p@(Periodic n _ _) ->
-                  calcPeriodic p (lookup n (gsLastPeriodicMark gs)) now) ps
+-- | Update the game state with an entry.
+doEntry :: Entry -> GameState -> GameState
+doEntry e gs = doTime (entryTime e) $
+  case e of
+    EntryHabit _ h    -> updateItems gs (ItemHabit h)
+    EntryPeriodic _ p -> updateItems gs (ItemPeriodic p)
+    EntryMark m       -> doMark m gs
 
-doEntry :: GameStateAcc -> Entry -> GameStateAcc
-doEntry gs e =
-  case e of EntryHabit h _ -> updateItems gs (ItemHabit h)
-            EntryPeriodic p _ -> updateItems gs (ItemPeriodic p)
-            EntryMark (n, t) -> doMark gs n t
-            _ -> error $ "Don't know how to handle these entries yet: " ++ show e
-
--- TODO Lenses?
-updateItems :: GameStateAcc -> Item -> GameStateAcc
+-- | Update the items in the game state with a new item.
+updateItems :: GameState -- ^ Current game state.
+            -> Item      -- ^ The new item.
+            -> GameState -- ^ Game state with the new item.
 updateItems gs i = gs { gsItems = addToAL (gsItems gs) (getName i) i }
 
-doMark :: GameStateAcc -> String -> LocalTime -> GameStateAcc
-doMark gs name time =
-  let item = lookup name (gsItems gs)
-  in case item of
-       Just (ItemHabit (Habit _ val)) ->
-         let i = if val > 0
-                 then ModExp time name val
-                 else ModHealth time name val
-         in gs { gsMods = i : gsMods gs }
-       Just (ItemPeriodic p) -> doMarkPeriodic gs p time
-       Just _ ->
-         error $ "Don't know how to mark this item yet: " ++ show item
-       Nothing ->
-         error $ "Item was not found in list of active items: " ++ show name
+doMark :: Mark -> GameState -> GameState
+doMark (name, t) gs = u gs
+  where
+    item = lookup name (gsItems gs)
+    u = case item of
+          Just (ItemHabit h)    -> doMarkHabit h t
+          Just (ItemPeriodic p) -> doMarkPeriodic p t
+          Nothing               -> error $ "Item was not found in list of active items: " ++ show name
 
-doMarkPeriodic :: GameStateAcc -- ^ Initial game state.
-               -> Periodic     -- ^ The periodic we're marking off.
-               -> LocalTime    -- ^ The time to mark the periodic off at.
-               -> GameStateAcc -- ^ The resultant game state.
-doMarkPeriodic gs p@(Periodic name _ val) time =
-  let lpc = addToAL (gsLastPeriodicMark gs) name time
-      lm = lookup name (gsLastPeriodicMark gs)
-      is = calcPeriodic p lm time
-      x = ModExp time name val
-  in gs { gsLastPeriodicMark = lpc, gsMods = x : is ++ gsMods gs }
+doMarkHabit :: Habit -> LocalTime -> GameState -> GameState
+doMarkHabit (Habit name val) t gs =
+  let i = if val > 0
+          then ModExp t name val
+          else ModHealth t name val
+  in gs { gsMods = i : gsMods gs }
 
-calcPeriodic :: Periodic -> Maybe LocalTime -> LocalTime -> [CharMod]
-calcPeriodic (Periodic name p val) lastMarked now =
-  let u = localTimeToUTC utc
-      u' = utcToLocalTime utc
-      d = (fromRational . toRational) p :: NominalDiffTime
-  in case lastMarked of
-       Nothing -> []
-       Just lm -> run (addUTCTime d (u lm))
-         where run t = if t < u now
-                       then ModHealth (u' t) name (-val) : run (addUTCTime d t)
-                       else []
+doMarkPeriodic :: Periodic  -- ^ The periodic we're marking off.
+               -> LocalTime -- ^ The time to mark the periodic off at.
+               -> GameState -- ^ Initial game state.
+               -> GameState -- ^ The resultant game state.
+doMarkPeriodic (Periodic name _ val) t gs =
+  let ms' = addToAL (gsMarks gs) name t
+      x = ModExp t name val
+  in gs { gsMarks = ms', gsMods = x : gsMods gs }
+
+-- TODO
+doMissedPeriodics :: LocalTime -> GameState -> GameState
+doMissedPeriodics time gs =
+  let ps = [p | (_, ItemPeriodic p) <- gsItems gs ]
+      toMod (Periodic n _ v) t = ModHealth t n (-v)
+      f p@(Periodic n _ _) = let lm = lookup n (gsMarks gs)
+                             in case lm of Nothing -> []
+                                           Just lm_ -> map (toMod p) (missedPeriodics p lm_ time)
+      ms = concatMap f ps
+  in gs { gsMods = ms ++ gsMods gs }
+
+-- | Find the points in time at which a periodic was missed.
+missedPeriodics :: Periodic
+                -> LocalTime   -- ^ Last time the periodic was marked off.
+                -> LocalTime   -- ^ The current time.
+                -> [LocalTime] -- ^ List of missed times.
+missedPeriodics (Periodic _ p _) lm now = run (addLocalTime p lm)
+  where run t = if t < now
+                then t : run (addLocalTime p t)
+                else []

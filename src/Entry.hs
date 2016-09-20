@@ -1,39 +1,51 @@
-module Entry ( Habit (..)
-             , Periodic (..)
-             , Todo (..)
-             , Entry (..)
-             , Nameable
+module Entry ( Entry (..)
+             , Habit (..)
              , Mark
+             , Nameable
+             , Periodic (..)
+             , diffLocalTime
+             , addLocalTime
+             , entryTime
              , getName
              ) where
 
 import Data.Time
 
-class Nameable s where
-  getName :: s -> String
+data Periodic = Periodic String DiffTime Int
+  deriving (Show)
+
+type Mark = (String, LocalTime)
 
 data Habit = Habit String Int
   deriving (Show)
 
+data Entry = EntryHabit LocalTime Habit
+           | EntryPeriodic LocalTime Periodic
+           | EntryMark Mark
+  deriving (Show)
+
+entryTime :: Entry -> LocalTime
+entryTime (EntryHabit t _) = t
+entryTime (EntryPeriodic t _) = t
+entryTime (EntryMark (_, t)) = t
+
+-- | Class of things which can be named with a string.
+class Nameable s where
+  getName :: s -> String
+
 instance Nameable Habit where
   getName (Habit s _) = s
-
-data Periodic = Periodic String DiffTime Int
-  deriving (Show)
 
 instance Nameable Periodic where
   getName (Periodic s _ _) = s
 
-data Todo = Todo String Int
-  deriving (Show)
+-- * Some random handy time functions.
 
-instance Nameable Todo where
-  getName (Todo s _) = s
+l2u :: LocalTime -> UTCTime
+l2u = localTimeToUTC utc
 
-type Mark = (String, LocalTime)
+diffLocalTime :: LocalTime -> LocalTime -> DiffTime
+diffLocalTime a b = realToFrac $ diffUTCTime (l2u a) (l2u b)
 
-data Entry = EntryHabit Habit LocalTime
-           | EntryPeriodic Periodic LocalTime
-           | EntryTodo Todo LocalTime
-           | EntryMark Mark
-  deriving (Show)
+addLocalTime :: DiffTime -> LocalTime -> LocalTime
+addLocalTime d a = utcToLocalTime utc $ addUTCTime (realToFrac d) (l2u a)
