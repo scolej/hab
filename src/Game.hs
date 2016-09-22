@@ -6,7 +6,9 @@ module Game ( CharMod (..)
             , runEntries
             ) where
 
+import Data.List
 import Data.List.Utils
+import Data.Ord
 import Data.Time
 import Entry
 import Debug.Trace
@@ -21,7 +23,11 @@ data CharState = CharState { csHealth :: Int
 -- | A modification to the character data.
 data CharMod = ModExp LocalTime String Int    -- ^ Increment / decrement experience.
              | ModHealth LocalTime String Int -- ^ Increment / decrement health.
-  deriving Show
+  deriving (Eq, Show)
+
+cmDate :: CharMod -> LocalTime
+cmDate (ModExp d _ _) = d
+cmDate (ModHealth d _ _) = d
 
 deriveCharacter :: GameState -> CharState
 deriveCharacter gs = CharState life ex 1
@@ -69,6 +75,8 @@ doEntry e gs = doTime (entryTime e) $
     EntryPeriodic _ p -> updateItems gs (ItemPeriodic p)
     EntryMark m       -> doMark m gs
 
+doTime = doMissedPeriodics
+
 -- | Update the items in the game state with a new item.
 updateItems :: GameState -- ^ Current game state.
             -> Item      -- ^ The new item.
@@ -103,20 +111,22 @@ doMarkPeriodic (Periodic name _ val) t gs =
 -- TODO
 doMissedPeriodics :: LocalTime -> GameState -> GameState
 doMissedPeriodics time gs =
-  let ps = [p | (_, ItemPeriodic p) <- gsItems gs ]
+  let (_, ptime) = maximumBy (comparing snd) (gsMarks gs) -- Most recent mark. Use this as t1 for filtering missed periodics.
+      ps = [p | (_, ItemPeriodic p) <- gsItems gs ]
       toMod (Periodic n _ v) t = ModHealth t n (-v)
       f p@(Periodic n _ _) = let lm = lookup n (gsMarks gs)
                              in case lm of Nothing -> []
-                                           Just lm_ -> map (toMod p) (missedPeriodics p lm_ time)
-      ms = concatMap f ps
+                                           Just lm_ -> map (toMod p) (missedPeriodics p lm_ (ptime, time))
+      ms = sortBy (comparing $ Down . cmDate) $ concatMap f ps
   in gs { gsMods = ms ++ gsMods gs }
 
 -- | Find the points in time at which a periodic was missed.
 missedPeriodics :: Periodic
-                -> LocalTime   -- ^ Last time the periodic was marked off.
-                -> LocalTime   -- ^ The current time.
-                -> [LocalTime] -- ^ List of missed times.
-missedPeriodics (Periodic _ p _) lm now = run (addLocalTime p lm)
-  where run t = if t < now
-                then t : run (addLocalTime p t)
-                else []
+                -> LocalTime              -- ^ Last time the periodic was marked off.
+                -> (LocalTime, LocalTime) -- ^ Window to filter to.
+                -> [LocalTime]            -- ^ List of missed times.
+missedPeriodics (Periodic _ p _) lm (t1, t2) =
+  let run t = t : run (addLocalTime p t)
+      ps = run lm
+  in takeWhile (< t2) . dropWhile (<= t1) $ ps
+               
