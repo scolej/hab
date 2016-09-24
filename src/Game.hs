@@ -23,7 +23,11 @@ data CharState = CharState { csHealth :: Int
 -- | A modification to the character data.
 data CharMod = ModExp LocalTime String Int    -- ^ Increment / decrement experience.
              | ModHealth LocalTime String Int -- ^ Increment / decrement health.
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show CharMod where
+  show (ModExp t s v) = unwords ["exp   ", show t, show s, show v]
+  show (ModHealth t s v) = unwords ["health", show t, show s, show v]
 
 cmDate :: CharMod -> LocalTime
 cmDate (ModExp d _ _) = d
@@ -69,12 +73,13 @@ runEntries gs es t =
 
 -- | Update the game state with an entry.
 doEntry :: Entry -> GameState -> GameState
-doEntry e gs = doTime (entryTime e) $
-  case e of
-    EntryHabit _ h    -> updateItems gs (ItemHabit h)
-    EntryPeriodic _ p -> updateItems gs (ItemPeriodic p)
-    EntryMark m       -> doMark m gs
+doEntry e = f . doTime (entryTime e)
+  where f gs = case e of
+              EntryHabit _ h    -> updateItems gs (ItemHabit h)
+              EntryPeriodic _ p -> updateItems gs (ItemPeriodic p)
+              EntryMark m       -> doMark m gs
 
+doTime :: LocalTime -> GameState -> GameState
 doTime = doMissedPeriodics
 
 -- | Update the items in the game state with a new item.
@@ -97,18 +102,18 @@ doMarkHabit (Habit name val) t gs =
   let i = if val > 0
           then ModExp t name val
           else ModHealth t name val
-  in gs { gsMods = i : gsMods gs }
+  in gs { gsMarks = addToAL (gsMarks gs) name t
+        , gsMods = i : gsMods gs }
 
 doMarkPeriodic :: Periodic  -- ^ The periodic we're marking off.
                -> LocalTime -- ^ The time to mark the periodic off at.
                -> GameState -- ^ Initial game state.
                -> GameState -- ^ The resultant game state.
 doMarkPeriodic (Periodic name _ val) t gs =
-  let ms' = addToAL (gsMarks gs) name t
-      x = ModExp t name val
-  in gs { gsMarks = ms', gsMods = x : gsMods gs }
+  let x = ModExp t name val
+  in gs { gsMarks = addToAL (gsMarks gs) name t
+        , gsMods = x : gsMods gs }
 
--- TODO
 doMissedPeriodics :: LocalTime -> GameState -> GameState
 doMissedPeriodics time gs =
   let (_, ptime) = maximumBy (comparing snd) (gsMarks gs) -- Most recent mark. Use this as t1 for filtering missed periodics.

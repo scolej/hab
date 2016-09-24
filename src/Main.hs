@@ -31,12 +31,12 @@ main = do
       names = map fst (gsItems g)
 
   if null args
-    then do mapM_ print (gsMods g)
+    then do mapM_ print (reverse $ gsMods g)
             print c
             writePeriodics g
     else do ms <- tryMarks names args
-            let (gs', c') = runEntries g (map EntryMark ms) now
-            postWrite c c'
+            let (_, c') = runEntries g (map EntryMark ms) now
+            unless (null ms) $ postWrite c c'
 
   -- mapM_ print $ gsItems g
 
