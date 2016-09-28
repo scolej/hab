@@ -12,17 +12,17 @@ module Entry ( Entry (..)
 import Data.Time
 
 data Periodic = Periodic String DiffTime Int
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Mark = (String, LocalTime)
 
 data Habit = Habit String Int
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Entry = EntryHabit LocalTime Habit
            | EntryPeriodic LocalTime Periodic
            | EntryMark Mark
-  deriving (Show)
+  deriving (Eq, Show)
 
 entryTime :: Entry -> LocalTime
 entryTime (EntryHabit t _) = t

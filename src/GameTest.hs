@@ -105,11 +105,25 @@ missedPeriodicWithMultiHabitMark =
      ]
      (gsMods gs')
 
+doubleAdvanceToSameTime :: [Test]
+doubleAdvanceToSameTime =
+  let ps = [ EntryHabit t0 (Habit "habit" 1)
+           , EntryPeriodic t0 (Periodic "per" dayDiff 2)
+           , EntryMark ("per", t0)
+           , EntryMark ("habit", t0 /+ dayDiff + 1)
+           , EntryMark ("habit", t0 /+ dayDiff + 1)
+           ]
+      tf = t0 /+ 5 * dayDiff
+      (g1, c1) = runEntries blankState ps tf
+      (g2, c2) = runEntries g1 [] tf
+  in [TestCase $ assertEqual "Advance to same time should yield same game state." g1 g2
+  ,TestCase $ assertEqual "Advance to same time should yield character state." c1 c2]
+
 main :: IO Counts
-main = runTestTT $ TestList [ missedPeriodic1
-                            , missedPeriodic2
-                            , multiMissedPeriodic1
-                            , missedPeriodicMultiMark
-                            , differentMissedPeriodic
-                            , missedPeriodicWithMultiHabitMark
-                            ]
+main = runTestTT $ TestList $ [ missedPeriodic1
+                              , missedPeriodic2
+                              , multiMissedPeriodic1
+                              , missedPeriodicMultiMark
+                              , differentMissedPeriodic
+                              , missedPeriodicWithMultiHabitMark                            
+                              ] ++ doubleAdvanceToSameTime

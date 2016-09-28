@@ -94,11 +94,10 @@ tryMarks names args = do
   now <- getLocalTime
   let marks = map (disambigName names) args
   if all (\x -> case x of Match _ -> True; _ -> False) marks
-    then do let ms = map (\(Match x) -> x) marks
-                es = map (\s -> (s, now)) ms
-            writeMarks es
+    then do let ms = map (\(Match x) -> (x, now)) marks
+            writeMarks ms
             putStrLn (show (length marks) ++ " item(s) checked off")
-            return es
+            return ms
     else mapM_ print marks >> return []
 
 data Match a = NoMatch a | Ambiguous [a] | Match a

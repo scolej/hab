@@ -18,7 +18,7 @@ data CharState = CharState { csHealth :: Int
                            , csExp :: Int
                            , csLevel :: Int
                            }
-  deriving Show
+  deriving (Eq, Show)
 
 -- | A modification to the character data.
 data CharMod = ModExp LocalTime String Int    -- ^ Increment / decrement experience.
@@ -45,22 +45,23 @@ deriveCharacter gs = CharState life ex 1
 data GameState = GameState { gsItems :: [(String, Item)]      -- ^ List of named items that can be checked out.
                            , gsMarks :: [(String, LocalTime)] -- ^ Association list from item names to the last time that they were checked off.
                            , gsMods :: [CharMod]              -- ^ List of all modifications to the character that have happened over time.
+                           , gsTime :: LocalTime              -- ^ The time that this state is relevant for. Should always contain the time for the most recent modification. 
                            }
-  deriving Show
+  deriving (Eq, Show)
 
 -- TODO Do we actually need this type?
 data Item = ItemHabit    Habit
           | ItemPeriodic Periodic
-  deriving Show
+  deriving (Eq, Show)
 
 -- TODO Better way to do this?
 instance Nameable Item
   where getName (ItemHabit    x) = getName x
         getName (ItemPeriodic x) = getName x
 
--- | Empty game state.
+-- | Empty game state. TODO Not sure what's going on with this date.
 blankState :: GameState
-blankState = GameState [] [] []
+blankState = GameState [] [] [] $ LocalTime (fromGregorian 2016 1 1) (TimeOfDay 0 0 0)
 
 -- | Run a set of entries up to a given time.
 runEntries :: GameState              -- ^ Starting state.
@@ -103,7 +104,9 @@ doMarkHabit (Habit name val) t gs =
           then ModExp t name val
           else ModHealth t name val
   in gs { gsMarks = addToAL (gsMarks gs) name t
-        , gsMods = i : gsMods gs }
+        , gsMods = i : gsMods gs
+        , gsTime = t
+        }
 
 doMarkPeriodic :: Periodic  -- ^ The periodic we're marking off.
                -> LocalTime -- ^ The time to mark the periodic off at.
@@ -112,18 +115,22 @@ doMarkPeriodic :: Periodic  -- ^ The periodic we're marking off.
 doMarkPeriodic (Periodic name _ val) t gs =
   let x = ModExp t name val
   in gs { gsMarks = addToAL (gsMarks gs) name t
-        , gsMods = x : gsMods gs }
+        , gsMods = x : gsMods gs
+        , gsTime = t
+        } -- TODO We need a function to do this time updating for us. Is going to be repeated everywhere.
 
 doMissedPeriodics :: LocalTime -> GameState -> GameState
 doMissedPeriodics time gs =
-  let (_, ptime) = maximumBy (comparing snd) (gsMarks gs) -- Most recent mark. Use this as t1 for filtering missed periodics.
+  let ptime = gsTime gs
       ps = [p | (_, ItemPeriodic p) <- gsItems gs ]
       toMod (Periodic n _ v) t = ModHealth t n (-v)
       f p@(Periodic n _ _) = let lm = lookup n (gsMarks gs)
                              in case lm of Nothing -> []
                                            Just lm_ -> map (toMod p) (missedPeriodics p lm_ (ptime, time))
       ms = sortBy (comparing $ Down . cmDate) $ concatMap f ps
-  in gs { gsMods = ms ++ gsMods gs }
+  in gs { gsMods = ms ++ gsMods gs
+        , gsTime = time
+        }
 
 -- | Find the points in time at which a periodic was missed.
 missedPeriodics :: Periodic
