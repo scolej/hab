@@ -2,7 +2,13 @@ module Game ( CharMod (..)
             , CharState (..)
             , GameState (..)
             , Item (..)
+            , blankCharacter
             , blankState
+            , charSummary 
+            , deriveCharacter
+            , fullHealth
+            , lvlExp 
+            , normChar 
             , runEntries
             ) where
 
@@ -14,11 +20,40 @@ import Entry
 import Debug.Trace
 
 -- | Character state.
-data CharState = CharState { csHealth :: Int
-                           , csExp :: Int
-                           , csLevel :: Int
-                           }
+data CharState = CharState Int -- ^ Health.
+                           Int -- ^ Experience.
+                           Int -- ^ Level.
+               | CharDead Int -- ^ Experience.
+                          Int -- ^ Level.
   deriving (Eq, Show)
+
+charSummary :: CharState -> String
+charSummary (CharState h x l) = "Character is level " 
+                             ++ show l 
+                             ++ " with " 
+                             ++ show x 
+                             ++ "/" 
+                             ++ show (lvlExp l)
+                             ++ " experience and " 
+                             ++ show h 
+                             ++ " health."
+charSummary (CharDead x l) = "Character is dead at level " 
+                             ++ show l 
+                             ++ " with " 
+                             ++ show x 
+                             ++ "/" 
+                             ++ show (lvlExp l)
+                             ++ " experience." 
+
+-- | Amount of experience needed to complete a level. Levels start from 1.
+lvlExp :: Int -> Int
+lvlExp l = head $ drop (l - 1) [50,70..]
+
+fullHealth :: Int
+fullHealth = 50
+
+blankCharacter :: CharState
+blankCharacter = CharState fullHealth 0 1
 
 -- | A modification to the character data.
 data CharMod = ModExp LocalTime String Int    -- ^ Increment / decrement experience.
@@ -33,19 +68,27 @@ cmDate :: CharMod -> LocalTime
 cmDate (ModExp d _ _) = d
 cmDate (ModHealth d _ _) = d
 
-deriveCharacter :: GameState -> CharState
-deriveCharacter gs = CharState life ex 1
-  where es = gsMods gs
-        hmods = [x | ModHealth _ _ x <- es]
-        emods = [x | ModExp    _ _ x <- es]
-        life = sum hmods
-        ex = sum emods
+normChar :: CharState -> CharState
+normChar c@(CharState h x l) | h <= 0 = CharDead x l
+                             | x >= lvlExp l = normChar $ CharState fullHealth (x - lvlExp l) (l + 1)
+                             | x < 0 = error "Experience less < 0 !!?? Should this happen?"
+                             | otherwise = c
+
+deriveCharacter :: [CharMod] -- ^ List of character modifications to apply.
+                -> CharState -- ^ Starting character state.
+                -> CharState -- ^ New character state.
+deriveCharacter mods c0 = run mods c0
+    where run (m:ms) c = run ms $ doMod m c
+          run [] c = c
+          doMod (ModExp    _ _ dx) (CharState h x l) = normChar $ CharState h (x + dx) l 
+          doMod (ModHealth _ _ dh) (CharState h x l) = normChar $ CharState (h + dh) x l 
+          doMod _ c@(CharDead _ _) = c
 
 -- | Value to store the game state as it evolves over time.
 data GameState = GameState { gsItems :: [(String, Item)]      -- ^ List of named items that can be checked out.
                            , gsMarks :: [(String, LocalTime)] -- ^ Association list from item names to the last time that they were checked off.
                            , gsMods :: [CharMod]              -- ^ List of all modifications to the character that have happened over time.
-                           , gsTime :: LocalTime              -- ^ The time that this state is relevant for. Should always contain the time for the most recent modification. 
+                           , gsTime :: LocalTime              -- ^ The time that this state is relevant for. Should always contain the time for the most recent modification.
                            }
   deriving (Eq, Show)
 
@@ -64,13 +107,14 @@ blankState :: GameState
 blankState = GameState [] [] [] $ LocalTime (fromGregorian 2016 1 1) (TimeOfDay 0 0 0)
 
 -- | Run a set of entries up to a given time.
-runEntries :: GameState              -- ^ Starting state.
+runEntries :: (GameState, CharState) -- ^ Starting state.
            -> [Entry]                -- ^ List of entries to run.
            -> LocalTime              -- ^ Time to run up to.
            -> (GameState, CharState) -- ^ Resultant state and character.
-runEntries gs es t =
+runEntries (gs, cs) es t =
   let gs' = doTime t $ foldl (flip doEntry) gs es
-  in (gs', deriveCharacter gs')
+      mods = takeWhile (\m -> cmDate m > gsTime gs) $ gsMods gs'
+  in (gs', deriveCharacter mods cs)
 
 -- | Update the game state with an entry.
 doEntry :: Entry -> GameState -> GameState
@@ -119,6 +163,7 @@ doMarkPeriodic (Periodic name _ val) t gs =
         , gsTime = t
         } -- TODO We need a function to do this time updating for us. Is going to be repeated everywhere.
 
+-- TODO Change this so periodics are active from their creation date, instead of from time they were last marked.
 doMissedPeriodics :: LocalTime -> GameState -> GameState
 doMissedPeriodics time gs =
   let ptime = gsTime gs
@@ -141,4 +186,4 @@ missedPeriodics (Periodic _ p _) lm (t1, t2) =
   let run t = t : run (addLocalTime p t)
       ps = run lm
   in takeWhile (< t2) . dropWhile (<= t1) $ ps
-               
+

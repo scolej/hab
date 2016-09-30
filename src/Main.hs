@@ -27,15 +27,15 @@ main = do
 
   now <- getLocalTime
 
-  let (g, c) = runEntries blankState es now
+  let (g, c) = runEntries (blankState, blankCharacter) es now
       names = map fst (gsItems g)
 
   if null args
     then do mapM_ print (reverse $ gsMods g)
-            print c
+            (putStrLn . charSummary) c
             writePeriodics g
     else do ms <- tryMarks names args
-            let (_, c') = runEntries g (map EntryMark ms) now
+            let (_, c') = runEntries (g, c) (map EntryMark ms) now
             unless (null ms) $ postWrite c c'
 
   -- mapM_ print $ gsItems g
@@ -43,9 +43,9 @@ main = do
   return ()
 
 ppDiffTime :: DiffTime -> String
-ppDiffTime d | abs d < 60 * 60 * 24 = printf "%.1fh" (d' / 60 / 60)
-             | abs d < 60 * 60 * 24 * 7 = printf "%4.1fd" (d' / 60 / 60 / 24)
-             | otherwise =  printf "%.1fw" (d' / 60 / 60 / 24 / 7)
+ppDiffTime d | abs d < 60 * 60 * 24 = printf "%8.1fh" (d' / 60 / 60)
+             | abs d < 60 * 60 * 24 * 7 = printf "%8.1fd" (d' / 60 / 60 / 24)
+             | otherwise =  printf "%8.1fw" (d' / 60 / 60 / 24 / 7)
   where d' = (fromRational . toRational) d :: Float
 
 timeRemaining :: LocalTime -> GameState -> Periodic -> Maybe DiffTime
@@ -67,9 +67,9 @@ writePeriodics g = do
     (sortBy (comparing (\(Periodic _ d _, r) -> r / d)) rs')
 
 postWrite :: CharState -> CharState -> IO ()
-postWrite c c' = do
-  let dh = csHealth c' - csHealth c
-      dx = csExp c' - csExp c
+postWrite (CharState h0 e0 l0) (CharState h1 e1 l1) = do
+  let dh = h1 - h0
+      dx = e1 - e0
   when (dx /= 0) $ do
     putStr "Exp: "
     colourMarks dx
