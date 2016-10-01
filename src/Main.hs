@@ -31,7 +31,7 @@ main = do
       names = map fst (gsItems g)
 
   if null args
-    then do mapM_ print (reverse $ gsMods g)
+    then do mapM_ ppMod (reverse $ gsMods g)
             (putStrLn . charSummary) c
             printBars c
             writePeriodics g
@@ -42,6 +42,29 @@ main = do
   -- mapM_ print $ gsItems g
 
   return ()
+
+-- TODO Tidy me.
+nameWidth = 20
+ppMod :: CharMod -> IO ()
+ppMod (ModHealth d n x) = do
+  putStr $ unwords $ [ show d
+                     , spacePad nameWidth n
+                     ]
+  let f = SetColor Foreground Vivid
+  setSGR [f Red]
+  putStr $ replicate (-x) '-'
+  setSGR []
+  putStr "\n"
+ppMod (ModExp d n x) = do
+  putStr $ unwords $ [ show d
+                     , spacePad nameWidth n
+                     ]
+  let f = SetColor Foreground Vivid
+  setSGR [f Green]
+  putStr $ replicate (x) '+'
+  setSGR []
+  putStr "\n"
+
 
 ppDiffTime :: DiffTime -> String
 ppDiffTime d | abs d < 60 * 60 * 24 = printf "%8.1fh" (d' / 60 / 60)
@@ -143,7 +166,7 @@ printBars (CharState h x l) = do
       hm = fullHealth
   -- Print experience bar.
   putStr $ spacePad 15 "Experience:"
-  printBar (fi x / fi xm) Green
+  printBar (fi x / fi xm) Black
   -- Print health bar.
   putStr $ spacePad 15 "Health:"
-  printBar (fi h / fi hm) Red
+  printBar (fi h / fi hm) Black
