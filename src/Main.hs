@@ -33,6 +33,7 @@ main = do
   if null args
     then do mapM_ print (reverse $ gsMods g)
             (putStrLn . charSummary) c
+            printBars c
             writePeriodics g
     else do ms <- tryMarks names args
             let (_, c') = runEntries (g, c) (map EntryMark ms) now
@@ -117,3 +118,32 @@ writeMarks :: [Mark] -> IO ()
 writeMarks marks = do
   let newlines = "\n" ++ (intercalate "\n" . map markStr) marks
   appendFile logFile newlines
+
+printBar :: Float -> Color -> IO ()
+printBar x c = do
+  let f = SetColor Foreground Vivid
+      w = 40
+      a = floor $ x * fi w
+      b = w - a
+  putStr "["
+  setSGR [f c]
+  putStr $ replicate a 'x'
+  setSGR []
+  putStr $ replicate b '-'
+  putStr "]\n"
+
+fi = fromIntegral
+
+spacePad :: Int -> String -> String
+spacePad i s = s ++ replicate (i - length s) ' '
+
+printBars :: CharState -> IO ()
+printBars (CharState h x l) = do
+  let xm = lvlExp l
+      hm = fullHealth
+  -- Print experience bar.
+  putStr $ spacePad 15 "Experience:"
+  printBar (fi x / fi xm) Green
+  -- Print health bar.
+  putStr $ spacePad 15 "Health:"
+  printBar (fi h / fi hm) Red
