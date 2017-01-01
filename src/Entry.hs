@@ -1,27 +1,36 @@
-module Entry ( Entry (..)
-             , Habit (..)
-             , Mark
-             , Nameable
-             , Periodic (..)
-             , diffLocalTime
-             , addLocalTime
-             , entryTime
-             , getName
-             ) where
+module Entry
+  ( Entry(..)
+  , Habit(..)
+  , Mark
+  , Nameable
+  , Periodic(..)
+  , diffLocalTime
+  , addLocalTime
+  , entryTime
+  , getName
+  ) where
 
 import Data.Time
 
-data Periodic = Periodic String DiffTime Int
+data Periodic =
+  Periodic String
+           DiffTime
+           Int
   deriving (Eq, Show)
 
 type Mark = (String, LocalTime)
 
-data Habit = Habit String Int
+data Habit =
+  Habit String
+        Int
   deriving (Eq, Show)
 
-data Entry = EntryHabit LocalTime Habit
-           | EntryPeriodic LocalTime Periodic
-           | EntryMark Mark
+data Entry
+  = EntryHabit LocalTime
+               Habit
+  | EntryPeriodic LocalTime
+                  Periodic
+  | EntryMark Mark
   deriving (Eq, Show)
 
 entryTime :: Entry -> LocalTime
@@ -30,7 +39,7 @@ entryTime (EntryPeriodic t _) = t
 entryTime (EntryMark (_, t)) = t
 
 -- | Class of things which can be named with a string.
-class Nameable s where
+class Nameable s  where
   getName :: s -> String
 
 instance Nameable Habit where
@@ -40,7 +49,6 @@ instance Nameable Periodic where
   getName (Periodic s _ _) = s
 
 -- * Some random handy time functions.
-
 l2u :: LocalTime -> UTCTime
 l2u = localTimeToUTC utc
 

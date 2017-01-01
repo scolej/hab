@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
-module Parser (loadFile) where
+module Parser
+  ( loadFile
+  ) where
 
 import Data.Maybe
 import Data.Time
@@ -10,9 +12,9 @@ import Text.Parsec hiding (spaces)
 loadFile :: String -> IO [Entry]
 loadFile file = do
   contents <- readFile file
-  case parse parseEntries file contents
-    of Right es -> return es
-       Left err -> error (show err)
+  case parse parseEntries file contents of
+    Right es -> return es
+    Left err -> error (show err)
 
 parseLine :: Parsec String () (Maybe Entry)
 parseLine = (comment >> return Nothing) <|> (Just <$> entry)
@@ -49,10 +51,11 @@ entry = do
   space
   action <- anyChar
   space
-  case action of 'h' -> habit (LocalTime d t)
-                 'p' -> periodic (LocalTime d t)
-                 'x' -> mark (LocalTime d t)
-                 _ -> parserFail "not a valid action"
+  case action of
+    'h' -> habit (LocalTime d t)
+    'p' -> periodic (LocalTime d t)
+    'x' -> mark (LocalTime d t)
+    _ -> parserFail "not a valid action"
 
 readWord :: Parsec String () String
 readWord = many1 $ noneOf " \n\r"
@@ -65,12 +68,13 @@ parseDuration = do
   xs <- many digit
   u <- anyChar
   let x = read xs
-  s <- case u of 'h' -> return $ 60 * 60
-                 'd' -> return $ 60 * 60 * 24
-                 'w' -> return $ 60 * 60 * 24 * 7
-                 _ -> parserFail "unknown duration unit"
+  s <-
+    case u of
+      'h' -> return $ 60 * 60
+      'd' -> return $ 60 * 60 * 24
+      'w' -> return $ 60 * 60 * 24 * 7
+      _ -> parserFail "unknown duration unit"
   return $ secondsToDiffTime (x * s)
-
 
 habit :: LocalTime -> Parsec String () Entry
 habit t = do
