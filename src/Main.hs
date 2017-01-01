@@ -1,3 +1,4 @@
+import Debug.Trace
 import Control.Monad
 import Data.List
 import Data.Ord
@@ -62,18 +63,20 @@ nameWidth = 20
 -- | Pretty print a character modifications with colours and crosses and minuses.
 ppMod :: CharMod -> IO ()
 ppMod (ModHealth d n x) = do
-  putStr $ unwords $ [show d, spacePad nameWidth n]
+  putStr $ unwords [show d, spacePad nameWidth n]
+  putStr " "
   let f = SetColor Foreground Vivid
   setSGR [f Red]
   putStr $ replicate (-x) '-'
-  setSGR []
+  setSGR [Reset]
   putStr "\n"
 ppMod (ModExp d n x) = do
-  putStr $ unwords $ [show d, spacePad nameWidth n]
+  putStr $ unwords [show d, spacePad nameWidth n]
+  putStr " "
   let f = SetColor Foreground Vivid
   setSGR [f Green]
-  putStr $ replicate (x) '+'
-  setSGR []
+  putStr $ replicate x '+'
+  setSGR [Reset]
   putStr "\n"
 
 ppDiffTime :: DiffTime -> String
@@ -131,7 +134,7 @@ colourMarks i = do
     else do
       setSGR [f Green]
       putStr $ replicate i '+'
-  setSGR []
+  setSGR [Reset]
 
 tryMarks :: [String] -> [String] -> IO [Mark]
 tryMarks names args = do
@@ -173,16 +176,13 @@ writeMarks marks = do
   let newlines = "\n" ++ (intercalate "\n" . map markStr) marks
   appendFile logFile newlines
 
-printBar :: Float -> Color -> IO ()
-printBar x c = do
-  let f = SetColor Foreground Vivid
-      w = 40
+printBar :: Float -> IO ()
+printBar x = do
+  let w = 40
       a = floor $ x * fi w
       b = w - a
   putStr "["
-  setSGR [f c]
   putStr $ replicate a 'x'
-  setSGR []
   putStr $ replicate b '-'
   putStr "]\n"
 
@@ -197,7 +197,7 @@ printBars (CharState h x l) = do
       hm = fullHealth
   -- Print experience bar.
   putStr $ spacePad 15 "Experience:"
-  printBar (fi x / fi xm) Black
+  printBar (fi x / fi xm)
   -- Print health bar.
   putStr $ spacePad 15 "Health:"
-  printBar (fi h / fi hm) Black
+  printBar (fi h / fi hm)
