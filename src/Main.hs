@@ -22,29 +22,46 @@ main :: IO ()
 main = do
   args <- getArgs
 
-  -- Read in a list of entries
+  -- Read in a list of entries.
   es <- loadFile logFile
 
   now <- getLocalTime
 
+  -- Run all the entries from a blank state.
   let (g, c) = runEntries (blankState, blankCharacter) es now
-      names = map fst (gsItems g)
 
   if null args
-    then do mapM_ ppMod (reverse $ gsMods g)
-            (putStrLn . charSummary) c
-            printBars c
-            writePeriodics g
-    else do ms <- tryMarks names args
-            let (_, c') = runEntries (g, c) (map EntryMark ms) now
-            unless (null ms) $ postWrite c c'
-
-  -- mapM_ print $ gsItems g
+    then doStatusReport g c
+    else doMarks now args (g, c)
 
   return ()
 
+-- | Branch of main in which the program should attempt to mark off items and emit a report of the resultant marks.
+doMarks :: LocalTime -- ^ The current time.
+        -> [String] -- ^ List of strings which were passed as arguments.
+        -> (GameState, CharState) -- ^ Game and character state before the marks are applied.
+        -> IO ()
+doMarks now args (g, c) = do 
+  let names = map fst (gsItems g)
+  ms <- tryMarks names args
+  let (_, c') = runEntries (g, c) (map EntryMark ms) now
+  unless (null ms) $ postWrite c c'
+
+-- | Branch of main in which we simply emit a report of the current situation.
+doStatusReport :: GameState -- ^ Current game state.
+               -> CharState -- ^ Current character state.
+               -> IO ()
+doStatusReport g c = do
+  mapM_ ppMod (reverse $ gsMods g)
+  (putStrLn . charSummary) c
+  printBars c
+  writePeriodics g
+
+f = SetColor Foreground Vivid
+
 -- TODO Tidy me.
 nameWidth = 20
+-- | Pretty print a character modifications with colours and crosses and minuses.
 ppMod :: CharMod -> IO ()
 ppMod (ModHealth d n x) = do
   putStr $ unwords $ [ show d
