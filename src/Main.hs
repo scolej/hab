@@ -6,11 +6,15 @@ import Entry
 import Game
 import Parser
 import System.Console.ANSI
+import System.Directory
 import System.Environment
+import System.FilePath
 import Text.Printf
 
+-- | Name of the file in the user's home directory where the log can
+-- be read from.
 logFile :: String
-logFile = "/home/sjc/everything/habit.log"
+logFile = "habit.log"
 
 getLocalTime :: IO LocalTime
 getLocalTime = do
@@ -21,8 +25,9 @@ getLocalTime = do
 main :: IO ()
 main = do
   args <- getArgs
+  home <- getHomeDirectory
   -- Read in a list of entries.
-  es <- loadFile logFile
+  es <- loadFile (home </> logFile)
   now <- getLocalTime
   -- Run all the entries from a blank state.
   let (g, c) = runEntries (blankState, blankCharacter) es now
