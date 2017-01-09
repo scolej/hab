@@ -1,4 +1,3 @@
-import Debug.Trace
 import Control.Monad
 import Data.List
 import Data.Ord
@@ -50,32 +49,35 @@ doStatusReport
   -> CharState -- ^ Current character state.
   -> IO ()
 doStatusReport g c = do
-  mapM_ ppMod (reverse $ gsMods g)
+  mapM_ ppCharMod (reverse $ gsMods g)
   (putStrLn . charSummary) c
   printBars c
   writePeriodics g
 
-f = SetColor Foreground Vivid
+-- | Width of column for printing the name of things checked off.
+nameWidth :: Int
+nameWidth = 40
 
--- TODO Tidy me.
-nameWidth = 20
+-- | Print time without seconds.
+showDateToMin :: LocalTime -> String
+showDateToMin = formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
 
 -- | Pretty print a character modifications with colours and crosses and minuses.
-ppMod :: CharMod -> IO ()
-ppMod (ModHealth d n x) = do
-  putStr $ unwords [show d, spacePad nameWidth n]
+ppCharMod :: CharMod -> IO ()
+ppCharMod (ModHealth d n x) = ppMod d n x Red
+ppCharMod (ModExp d n x) = ppMod d n x Green
+
+ppMod :: LocalTime -> String -> Int -> Color -> IO ()
+ppMod time name x color = do
+  putStr $ unwords [showDateToMin time, spacePad nameWidth name]
   putStr " "
-  let f = SetColor Foreground Vivid
-  setSGR [f Red]
-  putStr $ replicate (-x) '-'
-  setSGR [Reset]
-  putStr "\n"
-ppMod (ModExp d n x) = do
-  putStr $ unwords [show d, spacePad nameWidth n]
-  putStr " "
-  let f = SetColor Foreground Vivid
-  setSGR [f Green]
-  putStr $ replicate x '+'
+  setSGR [SetColor Foreground Vivid color]
+  putStr $
+    replicate
+      (abs x)
+      (if x < 0
+         then '-'
+         else '+')
   setSGR [Reset]
   putStr "\n"
 
@@ -112,7 +114,7 @@ writePeriodics g = do
     (sortBy (comparing (\(Periodic _ d _, r) -> r / d)) rs')
 
 postWrite :: CharState -> CharState -> IO ()
-postWrite (CharState h0 e0 l0) (CharState h1 e1 l1) = do
+postWrite (CharState h0 e0 _) (CharState h1 e1 _) = do
   let dh = h1 - h0
       dx = e1 - e0
   when (dx /= 0) $
