@@ -11,10 +11,9 @@ import System.Environment
 import System.FilePath
 import Text.Printf
 
--- | Name of the file in the user's home directory where the log can
--- be read from.
-logFile :: String
-logFile = "habit.log"
+-- | The file in the user's home directory where the log can be read from.
+logFile :: IO FilePath
+logFile = fmap (</> "habit.log") getHomeDirectory
 
 getLocalTime :: IO LocalTime
 getLocalTime = do
@@ -25,9 +24,8 @@ getLocalTime = do
 main :: IO ()
 main = do
   args <- getArgs
-  home <- getHomeDirectory
   -- Read in a list of entries.
-  es <- loadFile (home </> logFile)
+  es <- logFile >>= loadFile
   now <- getLocalTime
   -- Run all the entries from a blank state.
   let (g, c) = runEntries (blankState, blankCharacter) es now
@@ -181,7 +179,7 @@ markStr (s, t) =
 writeMarks :: [Mark] -> IO ()
 writeMarks marks = do
   let newlines = "\n" ++ (intercalate "\n" . map markStr) marks
-  appendFile logFile newlines
+  logFile >>= (`appendFile` newlines)
 
 printBar :: Float -> IO ()
 printBar x = do
