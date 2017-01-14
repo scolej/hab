@@ -1,6 +1,16 @@
-language: haskell
-ghc: 8.0.1
+language: sh
+
 cache:
   directories:
     - $HOME/.ghc
     - $HOME/.cabal
+    - $HOME/.stack
+
+before_install:
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+
+install:
+  - stack --no-terminal --skip-ghc-check setup
+  - stack build --no-terminal --skip-ghc-check --only-snapshot
