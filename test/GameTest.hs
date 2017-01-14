@@ -1,6 +1,10 @@
+module GameTest
+  ( tests
+  ) where
+
 import Test.HUnit
-import Game
-import Entry
+import Hab.Game
+import Hab.Entry
 import Data.Time
 
 t0 :: LocalTime
@@ -12,11 +16,11 @@ hourDiff = 60 * 60
 dayDiff :: DiffTime
 dayDiff = 24 * hourDiff
 
+runFromBlank :: [Entry] -> LocalTime -> (GameState, CharState)
 runFromBlank = runEntries (blankState, blankCharacter)
 
 (/+) :: LocalTime -> DiffTime -> LocalTime
 infixl 1 /+
-
 (/+) = flip addLocalTime
 
 missedPeriodic1 :: Test
@@ -138,9 +142,8 @@ doubleAdvanceToSameTime =
        assertEqual "Advance to same time should yield character state." c1 c2
      ]
 
-main :: IO Counts
-main =
-  runTestTT $
+tests :: Test
+tests =
   TestList $
   [ missedPeriodic1
   , missedPeriodic2

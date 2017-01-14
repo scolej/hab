@@ -1,4 +1,4 @@
-module Game
+module Hab.Game
   ( CharMod(..)
   , CharState(..)
   , GameState(..)
@@ -17,8 +17,7 @@ import Data.List
 import Data.List.Utils
 import Data.Ord
 import Data.Time
-import Entry
-import Debug.Trace
+import Hab.Entry
 
 -- | Character state.
 data CharState

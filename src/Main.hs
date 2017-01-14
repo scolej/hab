@@ -2,9 +2,9 @@ import Control.Monad
 import Data.List
 import Data.Ord
 import Data.Time
-import Entry
-import Game
-import Parser
+import Hab.Entry
+import Hab.Game
+import Hab.Parser
 import System.Console.ANSI
 import System.Directory
 import System.Environment

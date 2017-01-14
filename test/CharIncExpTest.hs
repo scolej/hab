@@ -1,15 +1,17 @@
-import Entry
+module CharIncExpTest
+  ( tests
+  ) where
+
 import Data.Time
-import Game
+import Hab.Game
 import Test.HUnit
 
--- Tests for increasing character experience.
 t0 :: LocalTime
 t0 = LocalTime (fromGregorian 2016 09 23) (TimeOfDay 10 0 0)
 
 -- | Shortcut for creating health modifications when we don't care about the date or the name.
 modx :: Int -> CharMod
-modx i = ModExp t0 "" i
+modx = ModExp t0 ""
 
 lvlExp1 :: Test
 lvlExp1 =
@@ -70,14 +72,14 @@ incExpOverflow2 =
        (CharState fullHealth 1 3)
        (deriveCharacter mods blankCharacter)
 
-main :: IO Counts
-main =
-  runTestTT $
+tests :: Test
+tests =
   TestList
     [ lvlExp1
     , incExpSimple
     , incExpSimple2
     , incExpHeal
+    , incExpSimpleHeal
     , incExpOverflow
     , incExpOverflow2
     ]

@@ -1,14 +1,17 @@
-import Test.HUnit
-import Game
-import Entry
-import Data.Time
+module CharDecHealthTest
+  ( tests
+  ) where
 
--- Tests for decreasing character health.
+import Data.Time
+import Hab.Game
+import Test.HUnit
+
 t0 :: LocalTime
 t0 = LocalTime (fromGregorian 2016 09 23) (TimeOfDay 10 0 0)
 
 -- | Shortcut for creating health modifications when we don't care about the date or the name.
-modh i = ModHealth t0 "" i
+modh :: Int -> CharMod
+modh = ModHealth t0 ""
 
 decHealthSimple :: Test
 decHealthSimple =
@@ -46,7 +49,6 @@ decHealthDead3 =
        (CharDead 10 5)
        (deriveCharacter mods (CharState 50 10 5))
 
-main :: IO Counts
-main =
-  runTestTT $
+tests :: Test
+tests =
   TestList [decHealthSimple, decHealthDead1, decHealthDead2, decHealthDead3]

@@ -1,4 +1,4 @@
-module Entry
+module Hab.Entry
   ( Entry(..)
   , Habit(..)
   , Mark

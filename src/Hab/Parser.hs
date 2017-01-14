@@ -1,12 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
-module Parser
+module Hab.Parser
   ( loadFile
   ) where
 
 import Data.Maybe
 import Data.Time
-import Entry
+import Hab.Entry
 import Text.Parsec hiding (spaces)
 
 loadFile :: String -> IO [Entry]
