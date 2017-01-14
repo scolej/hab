@@ -1,2 +1,6 @@
 language: haskell
 ghc: 8.0.1
+cache:
+  directories:
+    - $HOME/.ghc
+    - $HOME/.cabal
