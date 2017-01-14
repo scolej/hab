@@ -1,0 +1,24 @@
+sudo: required
+
+dist: trusty
+group: edge
+
+language: sh
+
+cache:
+  directories:
+    - $HOME/.ghc
+    - $HOME/.cabal
+    - $HOME/.stack
+
+before_install:
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+
+install:
+  - stack --no-terminal setup
+  - stack --no-terminal build
+
+script:
+  - stack --no-terminal test
