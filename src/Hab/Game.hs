@@ -40,7 +40,7 @@ charSummary (CharDead x l) =
 
 -- | Amount of experience needed to complete a level. Levels start from 1.
 lvlExp :: Int -> Int
-lvlExp l = head $ drop (l - 1) [50,70 ..]
+lvlExp l = head $ drop (l - 1) [10,20 ..]
 
 fullHealth :: Int
 fullHealth = 50
