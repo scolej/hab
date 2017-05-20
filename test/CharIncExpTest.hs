@@ -16,7 +16,7 @@ modx = ModExp t0 ""
 lvlExp1 :: Test
 lvlExp1 =
   TestCase $
-  assertEqual "Test level experience." [50, 70, 90] (map lvlExp [1, 2, 3])
+  assertEqual "Test level experience." [10, 20, 30] (map lvlExp [1, 2, 3])
 
 incExpSimple :: Test
 incExpSimple =
