@@ -142,6 +142,23 @@ doubleAdvanceToSameTime =
        assertEqual "Advance to same time should yield character state." c1 c2
      ]
 
+damageOnLevel :: Test
+damageOnLevel =
+  let ps =
+        [ EntryHabit t0 (Habit "habit" 5) -- One good and one bad habit.
+        , EntryHabit t0 (Habit "bad habit" (-1))
+        , EntryMark ("habit", t0 /+ dayDiff + 1) -- Gain enough experience to level up.
+        , EntryMark ("habit", t0 /+ dayDiff + 2)
+        , EntryMark ("bad habit", t0 /+ dayDiff + 3) -- Do something damaging.
+        ]
+      tf = t0 /+ dayDiff + 4
+      (g1, c1) = runFromBlank ps tf
+  in TestCase $
+     assertEqual
+       "Damage should be applied after a level up."
+       (CharState (fullHealth - 1) 0 2)
+       c1
+
 tests :: Test
 tests =
   TestList $
@@ -151,5 +168,6 @@ tests =
   , missedPeriodicMultiMark
   , differentMissedPeriodic
   , missedPeriodicWithMultiHabitMark
+  , damageOnLevel
   ] ++
   doubleAdvanceToSameTime

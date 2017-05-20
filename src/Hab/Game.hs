@@ -77,7 +77,7 @@ deriveCharacter
   :: [CharMod] -- ^ List of character modifications to apply.
   -> CharState -- ^ Starting character state.
   -> CharState -- ^ New character state.
-deriveCharacter mods c0 = run mods c0
+deriveCharacter = run
   where
     run (m:ms) c = run ms $ doMod m c
     run [] c = c
@@ -105,9 +105,10 @@ instance Nameable Item where
   getName (ItemHabit x) = getName x
   getName (ItemPeriodic x) = getName x
 
--- | Empty game state. TODO Not sure what's going on with this date.
+-- | Empty game state.
 blankState :: GameState
 blankState =
+  -- TODO Not sure what's going on with this date.
   GameState [] [] [] $ LocalTime (fromGregorian 2016 1 1) (TimeOfDay 0 0 0)
 
 -- | Run a set of entries up to a given time.
@@ -118,8 +119,8 @@ runEntries
   -> (GameState, CharState) -- ^ Resultant state and character.
 runEntries (gs, cs) es t =
   let gs' = doTime t $ foldl (flip doEntry) gs es
-      mods = takeWhile (\m -> cmDate m > gsTime gs) $ gsMods gs'
-  in (gs', deriveCharacter mods cs)
+      mods = takeWhile (\m -> cmDate m > gsTime gs) (gsMods gs')
+  in (gs', deriveCharacter (reverse mods) cs)
 
 -- | Update the game state with an entry.
 doEntry :: Entry -> GameState -> GameState

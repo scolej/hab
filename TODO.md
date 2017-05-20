@@ -5,5 +5,9 @@
 When you level up, the report shows negative marks for your
 experience.
 
-Level-up seems totally broken. Damage is not applied properly if you
-are sitting perfectly on full experience for a level.
+## To improve
+
+It would be nice if it could be always assumed that the character
+modification list was always sorted in date order. The order of this
+list is currently not defined and is causing bugs. Extract the
+GameState type and provide a better constructor?
