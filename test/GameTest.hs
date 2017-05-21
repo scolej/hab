@@ -4,6 +4,7 @@ module GameTest
 
 import Test.HUnit
 import Hab.Game
+import Hab.GameState
 import Hab.Entry
 import Data.Time
 
@@ -31,7 +32,7 @@ missedPeriodic1 =
   in TestCase $
      assertEqual
        "Miss one periodic."
-       [ModHealth (t0 /+ dayDiff) "testp" (-1), ModExp t0 "testp" 1]
+       [ModExp t0 "testp" 1, ModHealth (t0 /+ dayDiff) "testp" (-1)]
        (gsMods gs')
 
 missedPeriodic2 :: Test
@@ -42,9 +43,9 @@ missedPeriodic2 =
   in TestCase $
      assertEqual
        "Miss the same periodic twice."
-       [ ModHealth (t0 /+ dayDiff * 2) "testp" (-1)
+       [ ModExp t0 "testp" 1
        , ModHealth (t0 /+ dayDiff) "testp" (-1)
-       , ModExp t0 "testp" 1
+       , ModHealth (t0 /+ dayDiff * 2) "testp" (-1)
        ]
        (gsMods gs')
 
@@ -60,10 +61,10 @@ multiMissedPeriodic1 =
   in TestCase $
      assertEqual
        "Miss two periodics."
-       [ ModHealth (t0 /+ dayDiff) "testp2" (-2) -- Damage for the miss.
+       [ ModExp t0 "testp1" 1 -- Experience for the initial check off.
+       , ModExp t0 "testp2" 2
+       , ModHealth (t0 /+ dayDiff) "testp2" (-2) -- Damage for the miss.
        , ModHealth (t0 /+ dayDiff) "testp1" (-1)
-       , ModExp t0 "testp2" 2 -- Experience for the initial check off.
-       , ModExp t0 "testp1" 1
        ]
        (gsMods gs')
 
@@ -78,9 +79,9 @@ missedPeriodicMultiMark =
   in TestCase $
      assertEqual
        "Mark twice and miss one."
-       [ ModHealth (t0 /+ hourDiff /+ dayDiff) "testp" (-1)
+       [ ModExp t0 "testp" 1
        , ModExp (t0 /+ hourDiff) "testp" 1
-       , ModExp t0 "testp" 1
+       , ModHealth (t0 /+ hourDiff /+ dayDiff) "testp" (-1)
        ]
        (gsMods gs')
 
@@ -96,11 +97,11 @@ differentMissedPeriodic =
   in TestCase $
      assertEqual
        "One is missed twice, the other once."
-       [ ModHealth (t0 /+ 4 * dayDiff) "testp2" (-2)
-       , ModHealth (t0 /+ 3 * dayDiff) "testp3" (-3)
-       , ModHealth (t0 /+ 2 * dayDiff) "testp2" (-2)
+       [ ModExp t0 "testp3" 3
        , ModExp t0 "testp2" 2
-       , ModExp t0 "testp3" 3
+       , ModHealth (t0 /+ 2 * dayDiff) "testp2" (-2)
+       , ModHealth (t0 /+ 3 * dayDiff) "testp3" (-3)
+       , ModHealth (t0 /+ 4 * dayDiff) "testp2" (-2)
        ]
        (gsMods gs')
 
@@ -117,10 +118,10 @@ missedPeriodicWithMultiHabitMark =
   in TestCase $
      assertEqual
        "Habit is marked twice but periodic is missed only once."
-       [ ModExp (t0 /+ dayDiff + 1) "habit" 1
-       , ModExp (t0 /+ dayDiff + 1) "habit" 1
+       [ ModExp t0 "per" 2
        , ModHealth (t0 /+ dayDiff) "per" (-2)
-       , ModExp t0 "per" 2
+       , ModExp (t0 /+ dayDiff + 1) "habit" 1
+       , ModExp (t0 /+ dayDiff + 1) "habit" 1
        ]
        (gsMods gs')
 
@@ -147,11 +148,11 @@ damageOnLevel =
   let ps =
         [ EntryHabit t0 (Habit "habit" 5) -- One good and one bad habit.
         , EntryHabit t0 (Habit "bad habit" (-1))
-        , EntryMark ("habit", t0 /+ dayDiff + 1) -- Gain enough experience to level up.
-        , EntryMark ("habit", t0 /+ dayDiff + 2)
-        , EntryMark ("bad habit", t0 /+ dayDiff + 3) -- Do something damaging.
+        , EntryMark ("habit", t0 /+ dayDiff * 1) -- Gain enough experience to level up.
+        , EntryMark ("habit", t0 /+ dayDiff * 2)
+        , EntryMark ("bad habit", t0 /+ dayDiff * 3) -- Do something damaging.
         ]
-      tf = t0 /+ dayDiff + 4
+      tf = t0 /+ dayDiff * 4
       (g1, c1) = runFromBlank ps tf
   in TestCase $
      assertEqual

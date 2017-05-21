@@ -4,12 +4,14 @@ import Data.Ord
 import Data.Time
 import Hab.Entry
 import Hab.Game
+import Hab.GameState
 import Hab.Parser
 import System.Console.ANSI
 import System.Directory
 import System.Environment
 import System.FilePath
 import Text.Printf
+import Debug.Trace
 
 -- | The file in the user's home directory where the log can be read from.
 logFile :: IO FilePath
@@ -52,7 +54,7 @@ doStatusReport
   -> CharState -- ^ Current character state.
   -> IO ()
 doStatusReport g c = do
-  mapM_ ppCharMod (reverse $ gsMods g)
+  mapM_ ppCharMod (gsMods g)
   (putStrLn . charSummary) c
   printBars c
   writePeriodics g
@@ -147,16 +149,25 @@ tryMarks names args = do
   let marks = map (disambigName names) args
   if all
        (\x ->
-           case x of
-             Match _ -> True
-             _ -> False)
+          case x of
+            Match _ -> True
+            _ -> False)
        marks
     then do
       let ms = map (\(Match x) -> (x, now)) marks
+          i = length marks
       writeMarks ms
-      putStrLn (show (length marks) ++ " item(s) checked off")
+      putStrLn (show i ++ " " ++ splural i "item" ++ " checked off")
       return ms
     else mapM_ print marks >> return []
+
+splural :: Integral a => a -> String -> String
+splural x s
+  | x == 0 = plural
+  | abs x == 1 = s
+  | abs x > 1 = plural
+  where
+    plural = s ++ "s"
 
 data Match a
   = NoMatch a
