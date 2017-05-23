@@ -68,3 +68,8 @@ deriveCharacter = run
     doMod (ModHealth _ _ dh) (CharState h x l) =
       normChar $ CharState (h + dh) x l
     doMod _ c@(CharDead _ _) = c
+
+-- | Decide whether or not a character state represents death.
+characterIsDead :: CharState -> Bool
+characterIsDead (CharDead _ _) = True
+characterIsDead _ = False

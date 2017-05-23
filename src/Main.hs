@@ -5,6 +5,7 @@ import Data.Time
 import Hab.Entry
 import Hab.Game
 import Hab.GameState
+import Hab.Character
 import Hab.Parser
 import System.Console.ANSI
 import System.Directory
@@ -56,8 +57,9 @@ doStatusReport
 doStatusReport g c = do
   mapM_ ppCharMod (gsMods g)
   (putStrLn . charSummary) c
-  printBars c
-  writePeriodics g
+  unless (characterIsDead c) $ do
+    printBars c
+    writePeriodics g
 
 -- | Width of column for printing the name of things checked off.
 nameWidth :: Int
@@ -119,17 +121,31 @@ writePeriodics g = do
     (sortBy (comparing (\(Periodic _ d _, r) -> r / d)) rs')
 
 postWrite :: CharState -> CharState -> IO ()
-postWrite (CharState h0 e0 _) (CharState h1 e1 _) = do
+postWrite (CharState h0 e0 l0) (CharState h1 e1 l1) = do
   let dh = h1 - h0
       dx = e1 - e0
-  when (dx /= 0) $
-    do putStr "Exp: "
-       colourMarks dx
-       putStr "\n"
-  when (dh /= 0) $
-    do putStr "Lif: "
-       colourMarks dh
-       putStr "\n"
+      dl = l1 - l0
+  when (dl == 0 && dx /= 0) $ do
+    -- Show change in experience.
+    putStr "Exp: "
+    colourMarks dx
+    putStr "\n"
+  when (dl > 0) $ do
+    -- Print level up message.
+    setSGR [SetColor Background Vivid Green]
+    putStr $ "+++ Level " ++ show l1 ++ " +++"
+    setSGR [Reset]
+    putStr "\n"
+  when (dh /= 0) $ do
+    -- Show change in health.
+    putStr "Lif: "
+    colourMarks dh
+    putStr "\n"
+postWrite _ (CharDead _ _) = do
+    -- Print level up message.
+    setSGR [SetColor Background Vivid Red]
+    putStrLn "☠ Death ☠"
+    setSGR [Reset]
 
 colourMarks :: Int -> IO ()
 colourMarks i = do
